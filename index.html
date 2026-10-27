@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="TaskFlow: a personal checklist and task manager for studies, coding practice, open source and life.">
+  <title>TaskFlow – Personal Task Manager</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235b5bd6'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+  <script>
+    // Apply the saved theme before the page paints so there is no light/dark flash.
+    // (The full theme logic lives in script.js; this is only a tiny early copy of it.)
+    (function () {
+      try {
+        var saved = JSON.parse(localStorage.getItem('taskflow.settings.v1')) || {};
+        var theme = saved.theme;
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.dataset.theme = theme;
+      } catch (error) { /* ignore: fall back to the default light theme */ }
+    })();
+  </script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <div class="app">
+    <!-- Sidebar (desktop) / slide-in drawer (mobile). Links are generated in script.js. -->
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar">
+      <div class="brand">
+        <span class="brand-mark" id="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">TaskFlow</span>
+      </div>
+      <nav id="sidebar-nav" class="sidebar-nav" aria-label="Main navigation"></nav>
+      <p class="sidebar-footer">Your tasks are saved in this browser only.</p>
+    </aside>
+    <div class="sidebar-overlay" id="sidebar-overlay" hidden></div>
+
+    <div class="main-column">
+      <header class="topbar">
+        <button type="button" class="icon-btn menu-btn" id="menu-button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="sidebar"></button>
+
+        <div class="search">
+          <label for="search-input" class="visually-hidden">Search tasks by title or description</label>
+          <span class="search-icon" id="search-icon" aria-hidden="true"></span>
+          <input id="search-input" type="search" placeholder="Search tasks…" autocomplete="off">
+        </div>
+
+        <button type="button" class="icon-btn" id="theme-toggle"></button>
+        <button type="button" class="btn btn-primary" id="add-task-button">
+          <span id="add-task-icon" aria-hidden="true"></span>
+          <span class="btn-label">Add Task</span>
+        </button>
+      </header>
+
+      <main id="main-content" tabindex="-1">
+        <noscript><p class="noscript">TaskFlow needs JavaScript to run. Please enable JavaScript in your browser.</p></noscript>
+      </main>
+    </div>
+  </div>
+
+  <!-- Bottom navigation (mobile only) -->
+  <nav class="bottom-nav" id="bottom-nav" aria-label="Quick navigation"></nav>
+
+  <!-- Add / edit task dialog -->
+  <dialog id="task-dialog" class="dialog" aria-labelledby="task-dialog-title">
+    <form id="task-form" novalidate>
+      <header class="dialog-header">
+        <h2 id="task-dialog-title">Add task</h2>
+        <button type="button" class="icon-btn" id="task-dialog-close" aria-label="Close without saving"></button>
+      </header>
+
+      <div class="dialog-body">
+        <div class="field">
+          <label for="task-title">Title <span class="required" aria-hidden="true">*</span><span class="visually-hidden">(required)</span></label>
+          <input id="task-title" name="title" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Solve 3 LeetCode problems" aria-describedby="task-title-error">
+          <p class="field-error" id="task-title-error" role="alert"></p>
+        </div>
+
+        <div class="field">
+          <label for="task-description">Description <span class="optional">(optional)</span></label>
+          <textarea id="task-description" name="description" rows="3" maxlength="2000" placeholder="Notes, links, or anything you want to remember" aria-describedby="task-description-error"></textarea>
+          <p class="field-error" id="task-description-error" role="alert"></p>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="task-date">Due date <span class="required" aria-hidden="true">*</span><span class="visually-hidden">(required)</span></label>
+            <input id="task-date" name="dueDate" type="date" aria-describedby="task-date-error task-date-hint">
+            <p class="field-error" id="task-date-error" role="alert"></p>
+            <p class="field-hint" id="task-date-hint"></p>
+          </div>
+          <div class="field">
+            <label for="task-time">Due time <span class="optional">(optional)</span></label>
+            <input id="task-time" name="dueTime" type="time" aria-describedby="task-time-error">
+            <p class="field-error" id="task-time-error" role="alert"></p>
+          </div>
+        </div>
+
+        <div class="field-row field-row-3">
+          <div class="field">
+            <label for="task-category">Category</label>
+            <select id="task-category" name="category"></select>
+          </div>
+          <div class="field">
+            <label for="task-priority">Priority</label>
+            <select id="task-priority" name="priority"></select>
+          </div>
+          <div class="field">
+            <label for="task-status">Status</label>
+            <select id="task-status" name="status">
+              <option value="pending">Pending</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+        </div>
+
+        <fieldset class="field subtasks-field">
+          <legend>Subtasks <span class="optional">(optional checklist)</span></legend>
+          <ul class="form-subtask-list" id="task-subtask-list"></ul>
+          <div class="subtask-add">
+            <label for="task-new-subtask" class="visually-hidden">New subtask</label>
+            <input id="task-new-subtask" type="text" maxlength="120" autocomplete="off" placeholder="Add a checklist item and press Enter">
+            <button type="button" class="btn btn-secondary" id="task-add-subtask">Add</button>
+          </div>
+          <p class="field-error" id="task-subtask-error" role="alert"></p>
+        </fieldset>
+      </div>
+
+      <footer class="dialog-footer">
+        <button type="button" class="btn btn-ghost" id="task-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="task-submit">Add task</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Task details dialog (content is rendered by script.js) -->
+  <dialog id="details-dialog" class="dialog" aria-labelledby="details-title">
+    <div class="dialog-inner" id="details-content"></div>
+  </dialog>
+
+  <!-- Reusable confirmation dialog -->
+  <dialog id="confirm-dialog" class="dialog dialog-small" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+    <div class="dialog-inner">
+      <header class="dialog-header">
+        <h2 id="confirm-title">Are you sure?</h2>
+      </header>
+      <div class="dialog-body">
+        <p id="confirm-message"></p>
+      </div>
+      <footer class="dialog-footer">
+        <button type="button" class="btn btn-ghost" id="confirm-cancel">Cancel</button>
+        <button type="button" class="btn btn-secondary" id="confirm-secondary" hidden></button>
+        <button type="button" class="btn btn-primary" id="confirm-ok">Confirm</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <!-- Hidden file picker used by "Import backup" in Settings -->
+  <input type="file" id="import-file" accept="application/json,.json" hidden>
+
+  <!-- Toast notifications -->
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
